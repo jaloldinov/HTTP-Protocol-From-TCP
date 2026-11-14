@@ -62,7 +62,7 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 				break
 			}
 			if err != nil {
-				log.Fatal(err)
+				break
 			}
 		}
 
