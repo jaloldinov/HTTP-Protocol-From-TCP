@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"github/HTTP-Protocol-From-TCP/internal/headers"
 	"io"
+	"strconv"
 	"strings"
 )
 
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
+	Body        []byte
 	state       parserState
 }
 
@@ -27,6 +29,7 @@ const (
 	stateInitialized parserState = iota
 	stateDone
 	requestStateParsingHeaders
+	requestStateParsingBody
 )
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
@@ -127,13 +130,34 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			return 0, err
 		}
 		if done {
-			r.state = stateDone
+			r.state = requestStateParsingBody
 		}
 
 		return n, nil
 
-	case stateDone:
+	case requestStateParsingBody:
+		contentLengthStr := r.Headers.Get("Content-Length")
+		if contentLengthStr == "" {
+			r.state = stateDone
+			return 0, nil
+		}
 
+		contentLen, err := strconv.Atoi(contentLengthStr)
+		if err != nil {
+			return 0, fmt.Errorf("invalid content-length: %s", contentLengthStr)
+		}
+
+		r.Body = append(r.Body, data...)
+
+		if len(r.Body) > contentLen {
+			return 0, fmt.Errorf("body length are longer than content-length")
+		}
+		if len(r.Body) == contentLen {
+			r.state = stateDone
+		}
+		return len(data), nil
+
+	case stateDone:
 		return 0, fmt.Errorf("trying to read data in done state")
 
 	default:

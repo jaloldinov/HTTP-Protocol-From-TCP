@@ -68,3 +68,7 @@ func isValidKey(key string) bool {
 
 	return true
 }
+
+func (h Headers) Get(key string) string {
+	return h[strings.ToLower(key)]
+}
