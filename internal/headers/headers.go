@@ -37,7 +37,14 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return 0, false, fmt.Errorf("invalid header key: %s", key)
 	}
 
-	h[strings.ToLower(key)] = strings.TrimSpace(value)
+	key = strings.ToLower(key)
+	value = strings.TrimSpace(value)
+
+	if exist, ok := h[key]; ok {
+		h[key] = exist + ", " + value
+	} else {
+		h[key] = value
+	}
 
 	return idx + 2, false, nil
 }
@@ -48,7 +55,7 @@ func isValidKey(key string) bool {
 	}
 
 	for _, c := range key {
-		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c <= '0' && c >= '9' {
+		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' {
 			continue
 		}
 

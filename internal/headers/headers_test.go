@@ -57,7 +57,25 @@ func TestHeader(t *testing.T) {
 	data = []byte("CoNtEnT-TyPe: application/JSON\r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
-	assert.Equal(t, "application/JSON", headers["content-type"]) // kalit kichik, qiymat o'zgarmagan
+	assert.Equal(t, "application/JSON", headers["content-type"])
 	assert.False(t, done)
+
+	// Test: Multiple values for same key
+	headers = NewHeaders()
+	headers["set-person"] = "lane-loves-go"
+	data = []byte("Set-Person: prime-loves-zig\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	assert.Equal(t, "lane-loves-go, prime-loves-zig", headers["set-person"])
+	assert.False(t, done)
+
+	headers = NewHeaders()
+	headers["set-person"] = "lane-loves-go"
+	data = []byte("Set-Person: prime-loves-zig\r\nSet-Person: tj-loves-ocaml\r\n\r\n")
+	n, _, err = headers.Parse(data)
+	require.NoError(t, err)
+	_, _, err = headers.Parse(data[n:])
+	require.NoError(t, err)
+	assert.Equal(t, "lane-loves-go, prime-loves-zig, tj-loves-ocaml", headers["set-person"])
 
 }
