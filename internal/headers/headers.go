@@ -31,10 +31,33 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
 	if strings.HasSuffix(key, " ") {
 		return 0, false, fmt.Errorf("invalid header key: %s", line)
-
 	}
 
-	h[key] = strings.TrimSpace(value)
+	if !isValidKey(key) {
+		return 0, false, fmt.Errorf("invalid header key: %s", key)
+	}
+
+	h[strings.ToLower(key)] = strings.TrimSpace(value)
 
 	return idx + 2, false, nil
+}
+
+func isValidKey(key string) bool {
+	if len(key) == 0 {
+		return false
+	}
+
+	for _, c := range key {
+		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c <= '0' && c >= '9' {
+			continue
+		}
+
+		if strings.ContainsRune("!#$%&'*+-.^_`|~", c) {
+			continue
+		}
+
+		return false
+	}
+
+	return true
 }
