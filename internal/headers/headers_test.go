@@ -77,5 +77,4 @@ func TestHeader(t *testing.T) {
 	_, _, err = headers.Parse(data[n:])
 	require.NoError(t, err)
 	assert.Equal(t, "lane-loves-go, prime-loves-zig, tj-loves-ocaml", headers["set-person"])
-
 }
