@@ -12,6 +12,7 @@ const (
 	writerStateStatusLine writerState = iota
 	writerStateHeaders
 	writerStateBody
+	writerStateTrailers
 )
 
 type Writer struct {
@@ -82,5 +83,20 @@ func (w *Writer) WriteChunkedBodyDone() (int, error) {
 	if w.state != writerStateBody {
 		return 0, fmt.Errorf("body must be written after headers!")
 	}
-	return w.writer.Write([]byte("0\r\n\r\n"))
+
+	n, err := w.writer.Write([]byte("0\r\n"))
+	if err != nil {
+		return n, err
+	}
+
+	w.state = writerStateTrailers
+
+	return n, err
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	if w.state != writerStateTrailers {
+		return fmt.Errorf("trailers must be written after chunked body done!")
+	}
+	return WriteHeaders(w.writer, h)
 }
