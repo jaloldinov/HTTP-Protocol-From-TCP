@@ -1,7 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
+	"github/HTTP-Protocol-From-TCP/internal/request"
+	"github/HTTP-Protocol-From-TCP/internal/response"
 	"log"
 	"net"
 	"sync/atomic"
@@ -10,15 +13,16 @@ import (
 type Server struct {
 	listener net.Listener
 	closed   atomic.Bool
+	handler  Handler
 }
 
-func Serve(port int) (*Server, error) {
+func Serve(port int, handler Handler) (*Server, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
 	}
 
-	s := &Server{listener: listener}
+	s := &Server{listener: listener, handler: handler}
 	go s.listen()
 
 	return s, nil
@@ -46,12 +50,27 @@ func (s *Server) listen() {
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 
-	body := "Hello Golang!\n"
-	response := "HTTP/1.1 200 OK\r\n" +
-		"Content-Type: text/plain\r\n" +
-		fmt.Sprintf("Content-Length: %d\r\n", len(body)) +
-		"\r\n" +
-		body
+	req, err := request.RequestFromReader(conn)
+	if err != nil {
+		hErr := &HandleError{
+			StatusCode: response.StatusBadRequest,
+			Message:    err.Error(),
+		}
+		hErr.Write(conn)
+		return
+	}
 
-	conn.Write([]byte(response))
+	buf := bytes.NewBuffer(nil)
+
+	hErr := s.handler(buf, req)
+
+	if hErr != nil {
+		hErr.Write(conn)
+		return
+	}
+
+	body := buf.Bytes()
+	response.WriteStatusLine(conn, response.StatusOK)
+	response.WriteHeaders(conn, response.GetDefaultHeaders(len(body)))
+	conn.Write(body)
 }
