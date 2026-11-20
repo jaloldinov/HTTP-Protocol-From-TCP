@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
 	"github/HTTP-Protocol-From-TCP/internal/request"
 	"github/HTTP-Protocol-From-TCP/internal/response"
@@ -47,30 +46,21 @@ func (s *Server) listen() {
 	}
 }
 
+type Handler func(w *response.Writer, req *request.Request)
+
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 
+	w := response.NewWriter(conn)
+
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		hErr := &HandleError{
-			StatusCode: response.StatusBadRequest,
-			Message:    err.Error(),
-		}
-		hErr.Write(conn)
+		body := []byte(err.Error())
+		w.WriteStatusLine(response.StatusBadRequest)
+		w.WriteHeaders(response.GetDefaultHeaders(len(body)))
+		w.WriteBody(req.Body)
 		return
 	}
 
-	buf := bytes.NewBuffer(nil)
-
-	hErr := s.handler(buf, req)
-
-	if hErr != nil {
-		hErr.Write(conn)
-		return
-	}
-
-	body := buf.Bytes()
-	response.WriteStatusLine(conn, response.StatusOK)
-	response.WriteHeaders(conn, response.GetDefaultHeaders(len(body)))
-	conn.Write(body)
+	s.handler(w, req)
 }
