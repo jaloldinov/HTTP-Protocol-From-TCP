@@ -58,7 +58,7 @@ func (s *Server) handle(conn net.Conn) {
 		body := []byte(err.Error())
 		w.WriteStatusLine(response.StatusBadRequest)
 		w.WriteHeaders(response.GetDefaultHeaders(len(body)))
-		w.WriteBody(req.Body)
+		w.WriteBody(body)
 		return
 	}
 
