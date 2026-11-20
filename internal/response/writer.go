@@ -75,7 +75,7 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 	n, err = w.writer.Write([]byte("\r\n"))
 	total += n
 
-	return n, err
+	return total, err
 }
 
 func (w *Writer) WriteChunkedBodyDone() (int, error) {
