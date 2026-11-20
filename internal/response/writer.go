@@ -53,3 +53,34 @@ func (w *Writer) WriteBody(p []byte) (int, error) {
 	}
 	return w.writer.Write(p)
 }
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	if w.state != writerStateBody {
+		return 0, fmt.Errorf("body must be writter after headers!")
+	}
+	total := 0
+
+	n, err := fmt.Fprintf(w.writer, "%x\r\n", len(p))
+	total += n
+	if err != nil {
+		return total, err
+	}
+
+	n, err = w.writer.Write(p)
+	total += n
+	if err != nil {
+		return total, err
+	}
+
+	n, err = w.writer.Write([]byte("\r\n"))
+	total += n
+
+	return n, err
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	if w.state != writerStateBody {
+		return 0, fmt.Errorf("body must be written after headers!")
+	}
+	return w.writer.Write([]byte("0\r\n\r\n"))
+}

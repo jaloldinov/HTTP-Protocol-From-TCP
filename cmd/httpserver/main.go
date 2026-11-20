@@ -1,12 +1,17 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"github/HTTP-Protocol-From-TCP/internal/request"
 	"github/HTTP-Protocol-From-TCP/internal/response"
 	"github/HTTP-Protocol-From-TCP/internal/server"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -28,6 +33,10 @@ func main() {
 
 func handler(w *response.Writer, req *request.Request) {
 
+	if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/") {
+		proxyHandler(w, req)
+		return
+	}
 	status := response.StatusOK
 	body := html200
 
@@ -80,3 +89,47 @@ const html200 = `<html>
   </body>
 </html>
 `
+
+func proxyHandler(w *response.Writer, req *request.Request) {
+
+	path := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin")
+	url := "https://httpbingo.org" + path
+
+	resp, err := http.Get(url)
+	if err != nil {
+		h := response.GetDefaultHeaders(len(html500))
+		h.Set("Content-Type", "text/html")
+		w.WriteStatusLine(response.StatusInternalServerError)
+		w.WriteHeaders(h)
+		w.WriteBody([]byte(html500))
+		return
+	}
+	defer resp.Body.Close()
+
+	w.WriteStatusLine(response.StatusOK)
+	h := response.GetDefaultHeaders(0)
+	h.Delete("Content-Length")
+	h.Set("Transfer-Encoding", "chunked")
+	w.WriteHeaders(h)
+
+	buf := make([]byte, 1024)
+	for {
+		n, err := resp.Body.Read(buf)
+		fmt.Println("Read", n, "bytes")
+		if n > 0 {
+			if _, err := w.WriteChunkedBody(buf[:n]); err != nil {
+				fmt.Println("error writing chunk:", err)
+				break
+			}
+		}
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			fmt.Println("error reading response body:", err)
+			break
+		}
+	}
+
+	w.WriteChunkedBodyDone()
+}
